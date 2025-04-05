@@ -27,39 +27,59 @@ jobs:
           echo "📦 Using tag: $TAG"
           echo "tag=$TAG" >> $GITHUB_OUTPUT
 
-      - name: Prepare
+      - name: Prepare changelog files
         run: |
-          echo "# Release Notes for ${{ steps.tag.outputs.tag }}" > CHANGELOG.md
+          TAG="${{ steps.tag.outputs.tag }}"
+
+          LOGO='<img src="https://github.com/LightingControl/Centro.DSEngine/assets/19469812/fd8d2d51-537f-4369-9df0-fdc518279c92" width="200" height="100" />'
+
+          echo -e "$LOGO\n\n# 🚀 Release Notes – $TAG" > CHANGELOG.md
+          echo -e "$LOGO\n\n# 🚀 Release Notes – $TAG" > "Version_${TAG}_Changelog.md"
+
 
       - name: Fetch release notes and append to changelog
         run: |
           INPUT_TAG="${{ steps.tag.outputs.tag }}"
-          REPOS=("lightingcontrol/DeathStarWindow-CentroBackOffice" \
-                "lightingcontrol/Lcd.DeathstarEngine" \
+          REPOS=("lightingcontrol/Centro.Application" \
+                "lightingcontrol/Centro.DSEngine" \
                 "lightingcontrol/Centro-mobile-app")
 
           for REPO in "${REPOS[@]}"; do
-            echo "### $REPO" >> CHANGELOG.md
+          # Determine a "title emoji" based on repo name
+          for REPO in "${REPOS[@]}"; do
+          # Determine a "title emoji" based on repo name
+          case $REPO in
+            *Centro.Application*)      ICON="🖥️";;  # The Centro Application
+            *Centro.DSEngine*) ICON="🧠";;  # Centro Backend API 
+            *Centro-mobile-app*)      ICON="📱";;  # Centro User App
+                        *)                 ICON="📦";;  # Default: a general package
+          esac
 
-            # Try the input tag as-is
+          TITLE="## $ICON $REPO"
+          echo "$TITLE" >> CHANGELOG.md
+          echo "$TITLE" >> "Version_${INPUT_TAG}_Changelog.md"
+
+          echo "🔗 Fetching release notes for '$INPUT_TAG' from $REPO"
+
+          RELEASE=$(curl -s -H "Authorization: token ${GH_TOKEN}" \
+            "https://api.github.com/repos/$REPO/releases/tags/$INPUT_TAG")
+
+          MESSAGE=$(echo "$RELEASE" | jq -r '.message // empty')
+
+          if [[ "$MESSAGE" == "Not Found" ]]; then
+            ALT_TAG="${INPUT_TAG#v}"
+            echo "➕ Trying fallback tag '$ALT_TAG' for $REPO"
             RELEASE=$(curl -s -H "Authorization: token ${GH_TOKEN}" \
-              "https://api.github.com/repos/$REPO/releases/tags/$INPUT_TAG")
+              "https://api.github.com/repos/$REPO/releases/tags/$ALT_TAG")
+          fi
 
-            MESSAGE=$(echo "$RELEASE" | jq -r '.message // empty')
+          BODY=$(echo "$RELEASE" | jq -r '.body // "⚠️ No release notes found."')
 
-            # If the tag is not found, try removing leading 'v'
-            if [[ "$MESSAGE" == "Not Found" ]]; then
-              ALT_TAG="${INPUT_TAG#v}"
-              echo "➕ Trying fallback tag '$ALT_TAG' for $REPO"
+          echo "$BODY" >> CHANGELOG.md
+          echo -e "\n---\n" >> CHANGELOG.md
 
-              RELEASE=$(curl -s -H "Authorization: token ${GH_TOKEN}" \
-                "https://api.github.com/repos/$REPO/releases/tags/$ALT_TAG")
-            fi
-
-            # Extract body or fallback
-            BODY=$(echo "$RELEASE" | jq -r '.body // "⚠️ No release notes found."')
-            echo "$BODY" >> CHANGELOG.md
-            echo -e "\n" >> CHANGELOG.md
+          echo "$BODY" >> "Version_${INPUT_TAG}_Changelog.md"
+          echo -e "\n---\n" >> "Version_${INPUT_TAG}_Changelog.md"
           done
 
 
@@ -73,6 +93,26 @@ jobs:
           git checkout main
           git pull origin main
 
-          git add CHANGELOG.md
+          
+          git add CHANGELOG.md Version_${{ steps.tag.outputs.tag }}_Changelog.md
           git commit -m "Add aggregated changelog for ${{ steps.tag.outputs.tag }}" || echo "No changes to commit"
           git push origin main
+
+      - name: Create GitHub Release in public changelog repo
+        run: |
+          TAG="${{ steps.tag.outputs.tag }}"
+          ARCHIVE_FILE="Version_${TAG}_Changelog.md"
+
+          # Define the image tag as a single string (escaped quotes for HTML inside Bash)
+          LOGO='<img src="https://github.com/LightingControl/Centro.DSEngine/assets/19469812/fd8d2d51-537f-4369-9df0-fdc518279c92" width="200" height="100" />'
+
+          # Combine the image and the changelog body
+          RELEASE_BODY="$LOGO\n\n$(cat $ARCHIVE_FILE)"
+
+          # Use printf to pass the body (safer with newlines)
+          printf "%b" "$RELEASE_BODY" | gh release create "$TAG" \
+            --repo "${{ github.repository }}" \
+            --title "📦 Centro Platform – $TAG" \
+            --notes-file -
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
