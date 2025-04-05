@@ -1,0 +1,43 @@
+name: Aggregate GitHub Releases
+
+on:
+  push:
+    tags:
+      - 'v*'  # Matches tags like v1.2.0, v2.0.1, etc.
+
+jobs:
+  aggregate:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.NS_PAT }}
+
+    steps:
+      - name: Checkout public changelog repo
+        uses: actions/checkout@v4
+
+      - name: Prepare
+        run: |
+          echo "# Release Notes for ${{ github.event.inputs.tag }}" > CHANGELOG.md
+
+      - name: Fetch release notes and append to changelog
+        run: |
+          REPOS=("lightingcontrol/DeathStarWindow-CentroBackOffice" "lightingcontrol/Lcd.DeathstarEngine" "lightingcontrol/Centro-mobile-app")
+
+          for REPO in "${REPOS[@]}"; do
+            echo "### $REPO" >> CHANGELOG.md
+
+            RELEASE=$(curl -s -H "Authorization: token ${GH_TOKEN}" \
+              https://api.github.com/repos/$REPO/releases/tags/${{ github.event.inputs.tag }})
+
+            BODY=$(echo "$RELEASE" | jq -r '.body // "⚠️ No release notes found."')
+            echo "$BODY" >> CHANGELOG.md
+            echo -e "\n" >> CHANGELOG.md
+          done
+
+      - name: Commit and push changelog
+        run: |
+          git config --global user.name "github-actions"
+          git config --global user.email "actions@github.com"
+          git add CHANGELOG.md
+          git commit -m "Add aggregated changelog for ${{ github.event.inputs.tag }}"
+          git push
