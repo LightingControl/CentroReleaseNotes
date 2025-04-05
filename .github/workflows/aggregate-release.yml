@@ -105,7 +105,7 @@ jobs:
           LOGO='<img src="https://github.com/LightingControl/Centro.DSEngine/assets/19469812/fd8d2d51-537f-4369-9df0-fdc518279c92" width="200" height="100" />'
 
           # Combine the image and the changelog body
-          RELEASE_BODY="$LOGO\n\n$(cat $ARCHIVE_FILE)"
+          RELEASE_BODY="$(cat $ARCHIVE_FILE)"
 
           # Use printf to pass the body (safer with newlines)
           printf "%b" "$RELEASE_BODY" | gh release create "$TAG" \
