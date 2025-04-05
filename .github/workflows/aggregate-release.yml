@@ -22,7 +22,7 @@ jobs:
       - name: Fetch release notes and append to changelog
         run: |
           INPUT_TAG="${{ steps.tag.outputs.tag }}"
-          REPOS=("org/repo-a" "org/repo-b" "org/repo-c")
+          REPOS=("lightingcontrol/DeathStarWindow-CentroBackOffice" "lightingcontrol/Lcd.DeathstarEngine" "lightingcontrol/Centro-mobile-app")
 
           for REPO in "${REPOS[@]}"; do
             echo "### $REPO" >> CHANGELOG.md
