@@ -21,18 +21,31 @@ jobs:
 
       - name: Fetch release notes and append to changelog
         run: |
-          REPOS=("lightingcontrol/DeathStarWindow-CentroBackOffice" "lightingcontrol/Lcd.DeathstarEngine" "lightingcontrol/Centro-mobile-app")
+          INPUT_TAG="${{ steps.tag.outputs.tag }}"
+          REPOS=("org/repo-a" "org/repo-b" "org/repo-c")
 
           for REPO in "${REPOS[@]}"; do
             echo "### $REPO" >> CHANGELOG.md
 
+            # Try exact tag match first (e.g., v1.3)
             RELEASE=$(curl -s -H "Authorization: token ${GH_TOKEN}" \
-              https://api.github.com/repos/$REPO/releases/tags/${{ github.event.inputs.tag }})
+              "https://api.github.com/repos/$REPO/releases/tags/${INPUT_TAG}")
 
+            # If not found, try stripping the "v" (e.g., 1.3)
+            if [[ $(echo "$RELEASE" | jq -r '.message') == "Not Found" ]]; then
+              ALT_TAG="${INPUT_TAG#v}"
+              echo "Fallback to alt tag: $ALT_TAG"
+              RELEASE=$(curl -s -H "Authorization: token ${GH_TOKEN}" \
+                "https://api.github.com/repos/$REPO/releases/tags/${ALT_TAG}")
+            fi
+
+            # Extract the body if available
             BODY=$(echo "$RELEASE" | jq -r '.body // "⚠️ No release notes found."')
+
             echo "$BODY" >> CHANGELOG.md
             echo -e "\n" >> CHANGELOG.md
           done
+
 
       - name: Commit and push changelog
         run: |
