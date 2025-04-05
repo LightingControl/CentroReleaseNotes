@@ -40,4 +40,5 @@ jobs:
           git config --global user.email "actions@github.com"
           git add CHANGELOG.md
           git commit -m "Add aggregated changelog for ${{ github.event.inputs.tag }}"
-          git push
+          git push origin HEAD:main
+
