@@ -46,8 +46,6 @@ jobs:
 
           for REPO in "${REPOS[@]}"; do
           # Determine a "title emoji" based on repo name
-          for REPO in "${REPOS[@]}"; do
-          # Determine a "title emoji" based on repo name
           case $REPO in
             *Centro.Application*)      ICON="🖥️";;  # The Centro Application
             *Centro.DSEngine*) ICON="🧠";;  # Centro Backend API 
