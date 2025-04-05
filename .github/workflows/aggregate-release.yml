@@ -15,6 +15,18 @@ jobs:
       - name: Checkout public changelog repo
         uses: actions/checkout@v4
 
+      - name: Determine tag
+        id: tag
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            TAG="${{ github.event.inputs.tag }}"
+          else
+            TAG="${GITHUB_REF##*/}"
+          fi
+
+          echo "📦 Using tag: $TAG"
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+
       - name: Prepare
         run: |
           echo "# Release Notes for ${{ github.event.inputs.tag }}" > CHANGELOG.md
